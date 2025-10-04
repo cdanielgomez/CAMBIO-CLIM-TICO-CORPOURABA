@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informe Detallado: Proyecto Gestión del Cambio Climático</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: CORPOURABA (Primary Blue, Secondary Green, Accent Orange) -->
+    <!-- Application Structure Plan: Se ha optado por una estructura de página única con navegación por scroll para presentar la información de manera exhaustiva y fluida, eliminando la necesidad de hacer clic entre pestañas. El flujo es lógico: comienza con un 'Dashboard' de alto nivel, seguido de una sección de 'Contexto Estratégico'. Luego, profundiza en el 'Avance Físico Detallado', donde cada una de las 4 metas tiene su propio sub-apartado con texto y gráficos. Continúa con un 'Análisis Financiero' detallado, un desglose exhaustivo del 'Contrato Clave 0119-2025' (que a su vez está organizado por obligaciones), y finaliza con 'Riesgos y Próximos Pasos'. Esta arquitectura permite al usuario consumir toda la información en un único recorrido o saltar directamente a la sección de interés, satisfaciendo la necesidad de un informe "grande y detallado". -->
+    <!-- Visualization & Content Choices: 
+        - KPIs (Dashboard): Tarjetas grandes (HTML/CSS) para un impacto visual inmediato.
+        - Metas Físicas (Dashboard): Gráfico de barras (Chart.js) para una comparación rápida del estado de las metas.
+        - Avance Físico Detallado: Se usan tarjetas de texto enriquecidas (HTML/CSS) para explicar cada meta, complementadas con gráficos de línea y dona (Chart.js) para visualizar la progresión y composición de las actividades del contrato que nutren esas metas.
+        - Avance Financiero: Gráfico de dona (Chart.js) y una tabla detallada (HTML/CSS) para mostrar tanto la proporción como los valores exactos del presupuesto.
+        - Contrato Clave: Se utiliza una combinación de gráficos de línea, barras y dona (Chart.js) junto con listas detalladas (HTML/CSS) para desglosar cada una de las 6 obligaciones del contrato, sin omitir información.
+        - Riesgos y Alternativas: Tarjetas comparativas (HTML/CSS) para analizar las opciones estratégicas de manera clara.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        :root {
+            --color-primary: #1A4D8C;
+            --color-secondary: #00A651;
+            --color-accent: #F97316;
+            --color-text-dark: #111827;
+            --color-text-medium: #4b5563;
+        }
+        html {
+            scroll-behavior: smooth;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: var(--color-text-dark);
+        }
+        .main-nav a, .main-nav button {
+            transition: color 0.3s ease;
+        }
+        .main-nav a:hover, .main-nav button:hover {
+            color: var(--color-primary);
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 450px;
+        }
+        .kpi-card {
+            background-color: white;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+            border: 1px solid #e2e8f0;
+            height: 100%;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+         .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.07), 0 4px 6px -4px rgb(0 0 0 / 0.07);
+        }
+        .section-title {
+            font-size: 2.25rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            color: var(--color-primary);
+        }
+        .map-container {
+            height: 400px;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-container {
+            position: relative;
+            background: #f8fafc;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            width: 90%;
+            max-width: 1200px;
+            height: 90vh;
+            z-index: 1001;
+            overflow-y: auto;
+        }
+        .modal-close {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: #6b7280;
+        }
+        .tab-button.active {
+            border-bottom-color: var(--color-secondary);
+            color: var(--color-secondary);
+            font-weight: 600;
+        }
+        .content-section { display: none; }
+        .content-section.active { display: block; }
+        
+        .gemini-output {
+            background-color: #f0f9ff;
+            border-left: 4px solid #0284c7;
+            padding: 1rem;
+            margin-top: 1rem;
+            border-radius: 0.25rem;
+            white-space: pre-wrap;
+            font-family: sans-serif;
+            font-size: 0.875rem;
+            color: #0369a1;
+            line-height: 1.6;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: var(--color-primary);
+            animation: spin 1s ease infinite;
+            margin: 1rem auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .hero-bg {
+            background: radial-gradient(circle, rgba(239, 246, 255, 0.7) 0%, rgba(248, 250, 252, 0) 70%);
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <header class="bg-white/80 backdrop-blur-sm sticky top-0 z-50 border-b border-slate-200">
+        <nav class="container mx-auto px-4 md:px-8 flex justify-between items-center py-2">
+            <a href="#" class="flex items-center">
+                <span class="font-bold text-xl text-slate-800">Proyecto Gestión del Cambio Climático</span>
+            </a>
+            <div class="main-nav hidden md:flex items-center space-x-4 font-semibold text-slate-600 text-sm">
+                <a href="#dashboard">Dashboard</a>
+                <div class="relative" id="dropdown-container">
+                    <button id="dropdown-trigger" class="flex items-center font-semibold text-slate-600 text-sm">
+                        Avances Físicos
+                        <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                    <div id="dropdown-menu" class="absolute top-full mt-2 w-max bg-white rounded-md shadow-lg py-1 hidden z-20 dropdown-menu">
+                        <a href="#meta-mrv" class="block px-4 py-2 text-slate-700 hover:bg-slate-100">Sistema MRV</a>
+                        <a href="#meta-estufas" class="block px-4 py-2 text-slate-700 hover:bg-slate-100">Estufas Eficientes</a>
+                        <a href="#meta-energia" class="block px-4 py-2 text-slate-700 hover:bg-slate-100">Biometano</a>
+                    </div>
+                </div>
+                <a href="#financiero">Finanzas</a>
+                <a href="#contrato">Contratos</a>
+                <a href="#huella-carbono">Huella de Carbono</a>
+                 <div class="relative" id="planes-dropdown-container">
+                    <button id="planes-dropdown-trigger" class="flex items-center font-semibold text-slate-600 text-sm">
+                        Planes Climáticos
+                        <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                    <div id="planes-dropdown-menu" class="absolute top-full mt-2 w-max bg-white rounded-md shadow-lg py-1 hidden z-20 dropdown-menu">
+                        <a href="#planes-climaticos" class="block px-4 py-2 text-slate-700 hover:bg-slate-100">PICCA</a>
+                        <a href="#planes-climaticos" class="block px-4 py-2 text-slate-700 hover:bg-slate-100">Plan Clima y Paz</a>
+                        <a href="#planes-climaticos" class="block px-4 py-2 text-slate-700 hover:bg-slate-100">Estudio de Equivalencia</a>
+                    </div>
+                </div>
+                <div class="relative" id="praes-dropdown-container">
+                    <button id="praes-dropdown-trigger" class="flex items-center font-semibold text-slate-600 text-sm">
+                        PRAES y PROCEDAS
+                        <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                    <div id="praes-dropdown-menu" class="absolute top-full mt-2 w-max bg-white rounded-md shadow-lg py-1 hidden z-20 dropdown-menu">
+                        <a href="#praes" class="block px-4 py-2 text-slate-700 hover:bg-slate-100">PRAES</a>
+                        <a href="#procedas" class="block px-4 py-2 text-slate-700 hover:bg-slate-100">PROCEDAS</a>
+                    </div>
+                </div>
+                 <a href="#comunidades-negras">Comunidades Negras</a>
+                 <a href="#cambio-climatico-uraba">CC en Urabá</a>
+                 <a href="#gestion-riesgo">Gestión del Riesgo</a>
+                 <a href="#noticias">Noticias</a>
+                 <a href="#contacto">Contacto</a>
+                <a href="#recursos">Recursos</a>
+                <a href="#oportunidades">Oportunidades</a>
+                <a href="#riesgos">Riesgos</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto p-4 md:p-8">
+
+        <section id="presentacion" class="text-center py-16 md:py-24 hero-bg">
+            <h1 class="text-4xl md:text-6xl font-extrabold text-slate-900">Informe de Avances del Proyecto</h1>
+            <h2 class="text-4xl md:text-6xl font-extrabold" style="color: var(--color-primary);">Gestión del Cambio Climático</h2>
+            <p class="mt-4 max-w-3xl mx-auto text-lg text-slate-600">Reporte integral y detallado de CORPOURABA con corte a 30 de junio de 2025, presentando el estado físico, financiero, contractual y estratégico del proyecto.</p>
+        </section>
+
+        <section id="dashboard" class="pt-16">
+            <h3 class="section-title">Dashboard General</h3>
+            <p class="text-slate-600 mb-8 max-w-3xl">Se busca con el proyecto realizar actividades enmarcadas en el Plan Integral de Gestión del Cambio Climático de Territorial de Antioquia -PIGCCTA. Implementando estrategias de reducción y monitoreo de Gases de Efecto Invernadero.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="kpi-card bg-sky-50 border-sky-200"><h4 class="font-medium text-slate-600">Avance Físico General</h4><p class="text-4xl font-bold text-sky-600 mt-2">32%</p><p class="text-sm text-slate-500 mt-1">Promedio de 4 metas principales</p></div>
+                <div class="kpi-card"><h4 class="font-medium text-slate-600">Valor Total del Proyecto</h4><p class="text-4xl font-bold text-blue-800 mt-2">$276M</p><p class="text-sm text-slate-500 mt-1">Presupuesto total asignado</p></div>
+                <div class="kpi-card bg-green-50 border-green-200"><h4 class="font-medium text-slate-600">Presupuesto Comprometido</h4><p class="text-4xl font-bold text-green-600 mt-2">60%</p><p class="text-sm text-slate-500 mt-1">$166.3M comprometidos</p></div>
+                <div class="kpi-card"><h4 class="font-medium text-slate-600">Avance Meta Crítica</h4><p class="text-4xl font-bold text-amber-600 mt-2">10%</p><p class="text-sm text-slate-500 mt-1">Estudio de I+D+i en progreso</p></div>
+            </div>
+            <div class="kpi-card">
+                <h4 class="font-semibold text-lg mb-4 text-slate-800">Estado de Metas Físicas del Proyecto</h4>
+                <div class="chart-container"><canvas id="projectDashboardChart"></canvas></div>
+            </div>
+        </section>
+
+        <section id="contexto" class="pt-24">
+            <h3 class="section-title">Contexto Estratégico</h3>
+            <p class="text-slate-600 mb-8 max-w-3xl">El proyecto se alinea con marcos de política pública de alto nivel y tiene objetivos claros para generar un impacto tangible en la región.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="kpi-card">
+                    <h4 class="text-xl font-bold mb-3 text-slate-800">Alineación y Alcance</h4>
+                    <p class="text-slate-600">Este proyecto es una iniciativa clave de CORPOURABA, alineada con el **Plan Integral de Gestión del Cambio Climático de Antioquia (PIGCCTA)**. Su objetivo es impactar positivamente a los habitantes y ecosistemas de toda la jurisdicción a través de acciones de mitigación medibles.</p>
+                    <div class="mt-4 pt-4 border-t"><p class="font-semibold">Valor Total del Proyecto: <span class="text-blue-800">$276.000.000</span></p></div>
+                </div>
+                <div class="kpi-card">
+                     <h4 class="text-xl font-bold mb-3 text-slate-800">Objetivos del Proyecto</h4>
+                    <p class="mb-2"><strong class="text-slate-700">General:</strong> Se busca con el proyecto realizar actividades enmarcadas en el Plan Integral de Gestión del Cambio Climático de Territorial de Antioquia -PIGCCTA. Implementando estrategias de reducción y monitoreo de Gases de Efecto Invernadero</p>
+                    <p><strong class="text-slate-700">Específico:</strong> Aportar a la reducción las emisiones netas de gases efecto invernadero que se generan en la jurisdicción de la Corporación</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="progreso" class="pt-24">
+            <h3 class="section-title">Avance Físico Detallado</h3>
+            <p class="text-slate-600 mb-8 max-w-3xl">Análisis exhaustivo del progreso en cada una de las cuatro metas físicas.</p>
+
+            <h4 class="text-2xl font-bold text-slate-800 mb-4 mt-8">Metas en Progreso</h4>
+            <div class="space-y-12">
+                <div id="meta-mrv" class="kpi-card overflow-hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                            <h4 class="font-bold text-xl text-blue-800 leading-tight">Apoyar la consolidación del sistema de Monitoreo Reporte y Verificación MRV, de emisiones de GEI en la jurisdicción.</h4>
+                            <p class="text-slate-600 my-4">El establecimiento del sistema MRV muestra un progreso significativo, enfocado en la capacitación territorial.</p>
+                            <h5 class="font-semibold mb-2">Municipios Capacitados:</h5>
+                            <ul class="list-disc list-inside text-slate-600 space-y-1">
+                                <li>Apartadó, Arboletes, Cañasgordas, Chigorodó, Dabeiba, Giraldo, Murindó, Necoclí, Turbo.</li>
+                            </ul>
+                        </div>
+                        <div class="flex flex-col items-center justify-center">
+                            <div class="chart-container h-48 w-48"><canvas id="mrvProgressChart"></canvas></div>
+                        </div>
+                    </div>
+                    <div class="mt-8 border-t pt-6">
+                        <h5 class="font-semibold mb-4">Presentación de Capacitaciones</h5>
+                        <div style="position: relative; width: 100%; height: 0; padding-top: 56.2500%; padding-bottom: 0; box-shadow: 0 2px 8px 0 rgba(63,69,81,0.16); margin-top: 1.6em; margin-bottom: 0.9em; overflow: hidden; border-radius: 8px; will-change: transform;">
+                            <iframe loading="lazy" style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; border: none; padding: 0;margin: 0;" src="https://www.canva.com/design/DAGzDcsap4U/LcFiHNE17C0JSjgF0yywiQ/view?embed" allowfullscreen="allowfullscreen" allow="fullscreen"></iframe>
+                        </div>
+                    </div>
+                </div>
+                <div id="meta-estufas" class="kpi-card overflow-hidden">
+                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                            <h4 class="font-bold text-xl text-blue-800 leading-tight">Implementar en relación con la línea de energía y transporte, la medida de estufas eficientes (PIGCCTA).</h4>
+                            <p class="text-slate-600 my-4">Se ha avanzado en la meta de instalación, con 40 de 120 estufas ya implementadas.</p>
+                            <h5 class="font-semibold mb-2">Distribución de Estufas Instaladas:</h5>
+                             <ul class="list-disc list-inside text-slate-600 space-y-1">
+                                <li>**19 estufas** en el municipio de Carepa.</li>
+                                <li>**21 estufas** en el municipio de San Pedro de Urabá.</li>
+                            </ul>
+                        </div>
+                         <div class="flex flex-col items-center justify-center">
+                             <div class="chart-container h-48 w-48"><canvas id="stovesProgressChart"></canvas></div>
+                        </div>
+                    </div>
+                    <div class="mt-8 border-t pt-6">
+                        <h5 class="font-semibold mb-4">Estufas Contratadas en el Convenio</h5>
+                        <div class="kpi-card">
+                            <div class="chart-container h-80"><canvas id="convenioStovesChart"></canvas></div>
+                        </div>
+                    </div>
+                     <div class="mt-8 border-t pt-6">
+                        <h5 class="font-semibold mb-4">Documentos Relacionados</h5>
+                        <div class="flex flex-col md:flex-row gap-4 items-center flex-wrap">
+                            <a href="https://drive.google.com/drive/folders/1e73Qq8We2WxV6x8f0Ey1zxPK18qJiBvb?usp=sharing" target="_blank" class="w-full md:w-auto text-center bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors">Proyectos Evaluados</a>
+                            <div class="relative" id="convenios-dropdown-container">
+                                <button id="convenios-dropdown-trigger" class="w-full md:w-auto flex items-center justify-center font-bold text-white bg-blue-600 py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors">
+                                    <span>Convenios Vigentes</span>
+                                    <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                </button>
+                                <div id="convenios-dropdown-menu" class="absolute top-full mt-2 w-full bg-white rounded-md shadow-lg py-1 hidden z-20 dropdown-menu">
+                                    <a href="#" class="block px-4 py-2 text-slate-700 hover:bg-slate-100">Informe de Avance</a>
+                                    <a href="https://drive.google.com/drive/folders/16h1H5ihqdy8rzCgMH2NgMTLGY75ARL4u?usp=sharing" target="_blank" class="block px-4 py-2 text-slate-700 hover:bg-slate-100">Convenio y Adiciones</a>
+                                    <a href="https://drive.google.com/drive/folders/1L92cHteZR3gHFKHVwl2ASywBdL91VmQY?usp=sharing" target="_blank" class="block px-4 py-2 text-slate-700 hover:bg-slate-100">Actas de Verificación</a>
+                                    <a href="https://drive.google.com/file/d/18gqKRPE0BTLcw1u_F2qjV8X_RCSw7GsL/view?usp=sharing" target="_blank" class="block px-4 py-2 text-slate-700 hover:bg-slate-100">Ver Convenio 0310</a>
+                                </div>
+                            </div>
+                            <button id="openCoordsModalBtn" class="w-full md:w-auto text-center bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors">Ver Tabla de Coordenadas</button>
+                        </div>
+                    </div>
+                    <div class="mt-8 border-t pt-6">
+                        <h5 class="font-semibold mb-4">Galería de Estufas Entregadas</h5>
+                        <div style="position: relative; width: 100%; height: 0; padding-top: 56.2500%; padding-bottom: 0; box-shadow: 0 2px 8px 0 rgba(63,69,81,0.16); margin-top: 1.6em; margin-bottom: 0.9em; overflow: hidden; border-radius: 8px; will-change: transform;">
+                            <iframe loading="lazy" style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; border: none; padding: 0;margin: 0;" src="https://www.canva.com/design/DAG02nno31w/Knx3itoIz0O6TLjmTTej2A/view?embed" allowfullscreen="allowfullscreen" allow="fullscreen"></iframe>
+                        </div>
+                    </div>
+                    <div class="mt-8 border-t pt-6">
+                        <h5 class="font-semibold mb-4">Mapa de Beneficiarios en Carepa, Antioquia</h5>
+                        <div id="map" class="map-container"></div>
+                    </div>
+                    <div class="mt-8 border-t pt-6">
+                        <h5 class="font-semibold mb-4">Mapa de Beneficiarios en San Pedro de Urabá, Antioquia</h5>
+                        <div id="map-san-pedro" class="map-container"></div>
+                    </div>
+                </div>
+                <div id="meta-energia" class="kpi-card overflow-hidden">
+                    <h4 class="font-bold text-xl text-blue-800 leading-tight">Implementar en relación con la línea de energía y transporte, la medida de generación de biometano en el sector agropecuario.</h4>
+                    <p class="mt-2 mb-4 text-slate-600">La formulación de propuestas de biometano muestra un avance del 40%. Se han estructurado dos iniciativas clave listas para pasar a fase de financiación:</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                             <ul class="list-disc list-inside text-slate-600 space-y-2 mb-4">
+                                <li>**Gestión en Granja Porcina:** Solución técnica para olores.</li>
+                                <li>**Piloto Comunitario PROCEDA:** Infraestructura de energía limpia.</li>
+                            </ul>
+                            <div class="mt-4 pt-4 border-t">
+                                <h5 class="font-semibold text-slate-700">Contexto: Energías Limpias</h5>
+                                <p class="text-sm text-slate-600 mt-1">El biometano es una de las varias fuentes de energía limpia que se exploran en el proyecto. Esta estrategia se alinea con el objetivo de diversificar la matriz energética de la región con alternativas renovables, como la solar y la biomasa, para reducir la dependencia de combustibles fósiles.</p>
+                            </div>
+                        </div>
+                        <div class="chart-container h-72"><canvas id="energiaChartMeta"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <h4 class="text-2xl font-bold text-slate-800 mb-4 mt-12">Metas Críticas y Desafíos</h4>
+            <div class="space-y-12">
+                <div class="kpi-card border-l-4 border-amber-500">
+                    <h4 class="font-bold text-xl text-amber-600">Meta 4: Acciones de I+D+i</h4>
+                    <p class="mt-2 text-slate-600">Esta meta, crucial para el proyecto, muestra un avance inicial del 10%. El obstáculo central sigue siendo la dificultad para contratar a un experto con el perfil adecuado para liderar un estudio de esta magnitud a nivel regional. Las estrategias para superar este reto se detallan en la sección de Riesgos.</p>
+                </div>
+            </div>
+        </section>
+        
+        <section id="financiero" class="pt-24">
+             <h3 class="section-title">Análisis Financiero</h3>
+             <p class="text-slate-600 mb-8 max-w-3xl">Desglose del presupuesto total comprometido y disponible del proyecto.</p>
+             <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                 <div class="kpi-card lg:col-span-3">
+                    <h4 class="font-semibold text-lg mb-4 text-slate-800">Distribución del Presupuesto</h4>
+                    <div class="chart-container h-72"><canvas id="financialChart"></canvas></div>
+                </div>
+                 <div class="kpi-card lg:col-span-2">
+                    <h4 class="font-semibold text-lg mb-4 text-slate-800">Cifras Detalladas</h4>
+                     <table class="w-full text-left">
+                        <tbody>
+                            <tr class="border-b"><td class="py-3 font-semibold text-blue-800">Total Proyecto</td><td class="py-3 text-right font-bold text-blue-800">$276.000.000</td></tr>
+                            <tr class="border-b"><td class="py-3 font-semibold text-orange-600">Total Comprometido (60%)</td><td class="py-3 text-right font-bold text-orange-600">$166.355.400</td></tr>
+                            <tr class="border-b"><td class="py-3 font-semibold text-slate-600">Disponible (40%)</td><td class="py-3 text-right font-bold text-slate-600">$109.644.600</td></tr>
+                        </tbody>
+                     </table>
+                </div>
+             </div>
+        </section>
+
+        <section id="contrato" class="pt-24">
+            <h3 class="section-title">Contratos</h3>
+            <p class="text-slate-600 mb-8 max-w-3xl">El siguiente contrato ha sido el instrumento principal para la ejecución física del proyecto. A continuación, se detallan sus especificaciones y un resumen de su estado actual.</p>
+            <div class="kpi-card mb-8">
+                 <h4 class="text-xl font-bold text-slate-800 mb-2">Contrato de Servicios Profesionales N° 200-10-01-12-0119-2025</h4>
+                 <p class="text-slate-600"><strong class="text-slate-700">Objeto del Contrato:</strong> Prestar servicios profesionales para coordinar y supervisar iniciativas de mitigación del cambio climático, incluyendo la implementación del sistema MRV, seguimiento a proyectos de estufas eficientes, formulación de proyectos de biometano, y apoyo en la gestión cartográfica y administrativa del proyecto.</p>
+            </div>
+            <div class="kpi-card text-center">
+                 <h4 class="font-bold text-2xl text-slate-800">Avance General del Contrato: <span style="color: var(--color-secondary);">52%</span></h4>
+                 <p class="text-slate-500 mb-6">Promedio ponderado de todas las obligaciones contractuales.</p>
+                 <div class="flex flex-col md:flex-row gap-4 justify-center">
+                    <button id="openModalBtn" class="w-full md:w-auto bg-blue-800 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors">Ver Informe Interactivo</button>
+                    <a href="https://drive.google.com/file/d/1Kor3MuOjfPEOP4XB6oiatYKQ1JhovCMH/view?usp=sharing" target="_blank" class="w-full md:w-auto bg-gray-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-700 transition-colors">Visualizar Contrato</a>
+                 </div>
+            </div>
+        </section>
+
+        <section id="huella-carbono" class="pt-24">
+            <h3 class="section-title">Huella de Carbono Corporativa</h3>
+            <p class="text-slate-600 mb-8 max-w-3xl">Análisis de las emisiones de Gases de Efecto Invernadero (GEI) de CORPOURABA para el año 2024, como parte del compromiso con la transparencia y la gestión ambiental.</p>
+            
+            <div class="mb-6 border-b border-slate-200">
+                <nav class="flex -mb-px" id="huella-tabs">
+                    <button data-tab="huella-2024" class="tab-button active py-4 px-6 bg-transparent text-lg font-medium border-b-2 border-blue-600 text-blue-600 whitespace-nowrap">Resultados 2024</button>
+                    <button data-tab="huella-2025" class="tab-button py-4 px-6 bg-transparent text-lg font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap">Resultados 2025</button>
+                </nav>
+            </div>
+
+            <div id="huella-2024" class="huella-content">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="kpi-card bg-green-50 border-green-200 text-center"><h4 class="font-medium text-green-800">Huella Total 2024</h4><p class="text-4xl font-bold text-green-600 mt-2">241.03</p><p class="text-sm text-green-700 mt-1">tCO2e</p></div>
+                    <div class="kpi-card"><h4 class="font-medium text-slate-600">Alcance 1</h4><p class="text-3xl font-bold text-blue-800 mt-2">177.69 tCO2e</p><p class="text-sm text-slate-500 mt-1">Emisiones directas</p></div>
+                    <div class="kpi-card"><h4 class="font-medium text-slate-600">Alcance 2</h4><p class="text-3xl font-bold text-blue-800 mt-2">42.23 tCO2e</p><p class="text-sm text-slate-500 mt-1">Emisiones por energía</p></div>
+                    <div class="kpi-card"><h4 class="font-medium text-slate-600">Alcance 3</h4><p class="text-3xl font-bold text-blue-800 mt-2">21.10 tCO2e</p><p class="text-sm text-slate-500 mt-1">Otras emisiones indirectas</p></div>
+                </div>
+                 <div class="kpi-card mb-8">
+                    <h4 class="font-semibold text-lg mb-4 text-slate-800">Presentación de Resultados</h4>
+                    <div style="position: relative; width: 100%; height: 0; padding-top: 56.2500%; padding-bottom: 0; box-shadow: 0 2px 8px 0 rgba(63,69,81,0.16); margin-top: 1.6em; margin-bottom: 0.9em; overflow: hidden; border-radius: 8px; will-change: transform;">
+                        <iframe loading="lazy" style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; border: none; padding: 0;margin: 0;" src="https://www.canva.com/design/DAGiIaVYh4s/aTaGzJ0rApAuMpekE1Uj3A/view?embed" allowfullscreen="allowfullscreen" allow="fullscreen"></iframe>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="flex flex-col md:flex-row gap-4">
+                        <a href="https://docs.google.com/spreadsheets/d/1Qtx0vKD2zQ3VbkLDdAxYLnhp-JIV5tRt/edit?usp=sharing&ouid=108158947103927878210&rtpof=true&sd=true" target="_blank" class="w-full text-center bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition-colors">Calculadora de Huella de Carbono</a>
+                        <a href="https://drive.google.com/file/d/1RqSDR9nTLDVfcS79v4y7o5shpYLxpliT/view?usp=sharing" target="_blank" class="w-full text-center bg-gray-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-700 transition-colors">Informe de Resultados 2024</a>
+                    </div>
+                </div>
+            </div>
+            <div id="huella-2025" class="huella-content hidden">
+                <div class="kpi-card text-center">
+                    <p class="text-slate-600">Los resultados para el año 2025 estarán disponibles al finalizar el período de medición.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="praes" class="pt-24">
+            <h3 class="section-title">Cambio Climático en PRAES</h3>
+            <p class="text-slate-600 mb-8 max-w-3xl">Esta sección detalla la estrategia de CORPOURABA para integrar la educación sobre el cambio climático en los Proyectos Ambientales Escolares (PRAES). Se presentan los casos de estudio de varias instituciones educativas.</p>
+            <div class="mb-6 border-b border-slate-200">
+                <nav class="flex -mb-px" id="praes-tabs">
+                    <button data-tab="praes-el-dos" class="tab-button active py-4 px-6 bg-transparent text-lg font-medium border-b-2 border-blue-600 text-blue-600 whitespace-nowrap">I.E. El Dos</button>
+                    <button data-tab="praes-punta-piedra" class="tab-button py-4 px-6 bg-transparent text-lg font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap">I.E. Punta de Piedra</button>
+                    <button data-tab="praes-guineo" class="tab-button py-4 px-6 bg-transparent text-lg font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap">I.E. El Guineo</button>
+                </nav>
+            </div>
+            <div id="praes-el-dos" class="praes-content">
+                <div class="kpi-card">
+                    <h4 class="font-semibold text-lg mb-4 text-slate-800">Presentación: Cambio Climático en el PRAES de la I.E. El Dos</h4>
+                    <div style="position: relative; width: 100%; height: 0; padding-top: 56.2500%; padding-bottom: 0; box-shadow: 0 2px 8px 0 rgba(63,69,81,0.16); margin-top: 1.6em; margin-bottom: 0.9em; overflow: hidden; border-radius: 8px; will-change: transform;">
+                        <iframe loading="lazy" style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; border: none; padding: 0;margin: 0;" src="https://www.canva.com/design/DAGeD2XMjPs/NgTITuWQkOYVAZtE1v72KQ/view?embed" allowfullscreen="allowfullscreen" allow="fullscreen"></iframe>
+                    </div>
+                </div>
+            </div>
+            <div id="praes-punta-piedra" class="praes-content hidden">
+                <div class="kpi-card">
+                    <h4 class="font-semibold text-lg mb-4 text-slate-800">Presentación: Cambio Climático en el PRAES de la I.E. Punta de Piedra</h4>
+                    <div style="position: relative; width: 100%; height: 0; padding-top: 56.2500%; padding-bottom: 0; box-shadow: 0 2px 8px 0 rgba(63,69,81,0.16); margin-top: 1.6em; margin-bottom: 0.9em; overflow: hidden; border-radius: 8px; will-change: transform;">
+                        <iframe loading="lazy" style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; border: none; padding: 0;margin: 0;" src="https://www.canva.com/design/DAG03TTZpYM/FWBVzhLJP4i3aswjrN6acQ/view?embed" allowfullscreen="allowfullscreen" allow="fullscreen"></iframe>
+                    </div>
+                </div>
+            </div>
+            <div id="praes-guineo" class="praes-content hidden">
+                <div class="kpi-card">
+                    <h4 class="font-semibold text-lg mb-4 text-slate-800">Presentación: Cambio Climático en el PRAES de la I.E. El Guineo</h4>
+                    <div style="position: relative; width: 100%; height: 0; padding-top: 56.2500%; padding-bottom: 0; box-shadow: 0 2px 8px 0 rgba(63,69,81,0.16); margin-top: 1.6em; margin-bottom: 0.9em; overflow: hidden; border-radius: 8px; will-change: transform;">
+                        <iframe loading="lazy" style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; border: none; padding: 0;margin: 0;" src="https://www.canva.com/design/DAG03V0XWg8/hxeq5uyyD3Cmzv7sP0IlgA/view?embed" allowfullscreen="allowfullscreen" allow="fullscreen"></iframe>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="procedas" class="pt-24">
+            <h3 class="section-title">Cambio Climático en PROCEDAS</h3>
+            <p class="text-slate-600 mb-8 max-w-3xl">Aquí se presentan los Proyectos Ciudadanos de Educación Ambiental (PROCEDAS), que involucran directamente a las comunidades en la implementación de soluciones sostenibles. El siguiente informe detalla la implementación de una Solución Basada en la Naturaleza (SBN) en Puerto Cesar, Turbo, enfocada en la restauración de manglares como medida de adaptación y mitigación al cambio climático.</p>
+            <div class="kpi-card">
+                <h4 class="font-semibold text-lg mb-4 text-slate-800">Presentación: Informe Final SBN en Puerto Cesar</h4>
+                 <div style="position: relative; width: 100%; height: 0; padding-top: 56.2500%; padding-bottom: 0; box-shadow: 0 2px 8px 0 rgba(63,69,81,0.16); margin-top: 1.6em; margin-bottom: 0.9em; overflow: hidden; border-radius: 8px; will-change: transform;">
+                    <iframe loading="lazy" style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; border: none; padding: 0;margin: 0;" src="https://www.canva.com/design/DAGeQ3oi_Zw/zGPBA725ZOQBs49Zt8xIrQ/view?embed" allowfullscreen="allowfullscreen" allow="fullscreen"></iframe>
+                </div>
+            </div>
+        </section>
+
+        <section id="comunidades-negras" class="pt-24">
+            <h3 class="section-title">Cambio Climático en Comunidades Negras</h3>
+            <p class="text-slate-600 mb-8 max-w-3xl">Análisis y estrategias enfocadas en la gestión del cambio climático desde la perspectiva de las comunidades negras, sus territorios colectivos y sus conocimientos ancestrales, promoviendo soluciones adaptativas y resilientes.</p>
+            <div class="kpi-card">
+                <h4 class="font-semibold text-lg mb-4 text-slate-800">Presentación: Cambio Climático y Territorios Colectivos</h4>
+                <div style="position: relative; width: 100%; height: 0; padding-top: 56.2500%; padding-bottom: 0; box-shadow: 0 2px 8px 0 rgba(63,69,81,0.16); margin-top: 1.6em; margin-bottom: 0.9em; overflow: hidden; border-radius: 8px; will-change: transform;">
+                    <iframe loading="lazy" style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; border: none; padding: 0;margin: 0;" src="https://www.canva.com/design/DAG02VAPr94/WyV0sMhayKTL2KPkiUEPhw/view?embed" allowfullscreen="allowfullscreen" allow="fullscreen"></iframe>
+                </div>
+            </div>
+        </section>
+        
+        <section id="cambio-climatico-uraba" class="pt-24">
+            <h3 class="section-title">Cambio Climático en Urabá</h3>
+            <p class="text-slate-600 mb-8 max-w-3xl">Presentación general sobre los impactos, vulnerabilidades y estrategias de adaptación y mitigación del cambio climático específicas para la región de Urabá.</p>
+            <div class="kpi-card">
+                <h4 class="font-semibold text-lg mb-4 text-slate-800">Presentación: Región de Urabá y Cambio Climático</h4>
+                 <div style="position: relative; width: 100%; height: 0; padding-top: 56.2500%; padding-bottom: 0; box-shadow: 0 2px 8px 0 rgba(63,69,81,0.16); margin-top: 1.6em; margin-bottom: 0.9em; overflow: hidden; border-radius: 8px; will-change: transform;">
+                    <iframe loading="lazy" style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; border: none; padding: 0;margin: 0;" src="https://www.canva.com/design/DAGUoRecva8/9iXKZ1dT3m4522YHzqRe2Q/view?embed" allowfullscreen="allowfullscreen" allow="fullscreen"></iframe>
+                </div>
+            </div>
+        </section>
+        
+        <section id="gestion-riesgo" class="pt-24">
+            <h3 class="section-title">Cambio Climático y Gestión del Riesgo</h3>
+            <p class="text-slate-600 mb-8 max-w-3xl">Análisis de la interrelación entre el cambio climático y la gestión del riesgo de desastres, presentando estrategias para la construcción de territorios más resilientes en Urabá.</p>
+            <div class="kpi-card">
+                <h4 class="font-semibold text-lg mb-4 text-slate-800">Presentación: Gestión del Riesgo y Cambio Climático</h4>
+                <div style="position: relative; width: 100%; height: 0; padding-top: 56.2500%; padding-bottom: 0; box-shadow: 0 2px 8px 0 rgba(63,69,81,0.16); margin-top: 1.6em; margin-bottom: 0.9em; overflow: hidden; border-radius: 8px; will-change: transform;">
+                    <iframe loading="lazy" style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; border: none; padding: 0;margin: 0;" src="https://www.canva.com/design/DAGMz4qwD-k/G_pA21KHkf1LJNA9dOsl_Q/view?embed" allowfullscreen="allowfullscreen" allow="fullscreen"></iframe>
+                </div>
+            </div>
+        </section>
+        
+        <section id="noticias" class="pt-24">
+            <h3 class="section-title">Noticias</h3>
+            <p class="text-slate-600 mb-8 max-w-3xl">Últimas noticias y comunicados relacionados con la gestión del cambio climático por parte de CORPOURABA y sus aliados en la región.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="kpi-card">
+                    <h4 class="font-bold text-slate-800">Urabá inaugura la primera estación de carga eléctrica para vehículos</h4>
+                    <p class="text-sm text-slate-600 mt-2">Un hito en la movilidad sostenible de la región, impulsando el uso de energías limpias y reduciendo la huella de carbono del transporte.</p>
+                    <a href="https://www.facebook.com/noticiaselboom/videos/urab%C3%A1-ll-nuestro-urab%C3%A1-inaugura-la-primera-estaci%C3%B3n-de-carga-el%C3%A9ctrica-para-veh%C3%AD/1288303299322024/" target="_blank" class="text-blue-600 hover:underline mt-4 inline-block font-semibold">Ver Video</a>
+                </div>
+                <div class="kpi-card">
+                    <h4 class="font-bold text-slate-800">Con enfoque de cambio climático, culminó el curso de gestión del riesgo de desastres realizado por el Dagran y Corpourabá</h4>
+                    <p class="text-sm text-slate-600 mt-2">Fortalecimiento del proceso de conocimiento del riesgo en el territorio y promoción de la importancia de la implementación del Sistema de Alerta y Monitoreo de Antioquia, SAMA...</p>
+                    <a href="https://www.antioquia.gov.co/noticias-dagran/con-enfoque-de-cambio-climatico-culmino-el-curso-de-gestion-del-riesgo-de-desastres-realizado-por-el-dagran-y-corpouraba" target="_blank" class="text-blue-600 hover:underline mt-4 inline-block font-semibold">Leer más</a>
+                </div>
+                <div class="kpi-card">
+                    <h4 class="font-bold text-slate-800">Renovación de Acuerdos de Conservación en el Occidente Antioqueño</h4>
+                    <p class="text-sm text-slate-600 mt-2">Masbosques y Corpourabá renovaron acuerdos con 99 familias para fortalecer la conservación de ecosistemas estratégicos en el marco del convenio 019524...</p>
+                    <a href="https://masbosques.org/renovacion-acuerdos-conservacion-occidente-antioqueno/" target="_blank" class="text-blue-600 hover:underline mt-4 inline-block font-semibold">Leer más</a>
+                </div>
+                 <div class="kpi-card">
+                    <h4 class="font-bold text-slate-800">Alianza por la gestión de los bosques y el cambio climático</h4>
+                    <p class="text-sm text-slate-600 mt-2">Más de 20 entidades públicas y privadas, incluyendo a CORPOURABA y la FAO, suman gestiones por el desarrollo sostenible del Departamento, buscando incluir en planes de gobierno acciones contra la deforestación...</p>
+                    <a href="https://medellin.unal.edu.co/la-sede-en-los-medios/2849-corpouraba-entre-las-mas-de-20-entidades-publicas-y-privadas-academicas-y-organismos-no-gubernamentales-que-sumaran-gestiones-por-el-desarrollo-sostenible-del-departamento.html" target="_blank" class="text-blue-600 hover:underline mt-4 inline-block font-semibold">Leer más</a>
+                </div>
+            </div>
+        </section>
+
+        <section id="planes-climaticos" class="pt-24">
+            <h3 class="section-title">Planes Climáticos</h3>
+            <p class="text-slate-600 mb-8 max-w-3xl">Acceso a los documentos estratégicos que guían la acción climática en la región, incluyendo el PICCA, el Plan Clima y Paz, y su estudio de equivalencia.</p>
+             <div class="mb-6 border-b border-slate-200">
+                <nav class="flex -mb-px" id="planes-tabs">
+                    <button data-tab="picca" class="tab-button active py-4 px-6 bg-transparent text-lg font-medium border-b-2 border-blue-600 text-blue-600 whitespace-nowrap">PICCA</button>
+                    <button data-tab="clima-paz" class="tab-button py-4 px-6 bg-transparent text-lg font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap">Plan Clima y Paz</button>
+                    <button data-tab="equivalencia" class="tab-button py-4 px-6 bg-transparent text-lg font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap">Estudio de Equivalencia</button>
+                </nav>
+            </div>
+
+            <div id="picca" class="planes-content">
+                <div class="kpi-card">
+                    <h4 class="text-xl font-bold text-slate-800 mb-2">Plan Integral de Cambio Climático de Antioquia (PICCA)</h4>
+                    <p class="text-slate-600 mb-6">El PICCA es la hoja de ruta departamental para la gestión del cambio climático. A continuación, puede acceder al documento completo y a sus medidas específicas.</p>
+                    <div class="flex flex-col md:flex-row gap-4 items-center">
+                         <a href="https://drive.google.com/file/d/1qvOYfuU2RX1wmS2MIH1cnzERLW1OQrrY/view?usp=sharing" target="_blank" class="w-full md:w-auto text-center bg-blue-800 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors">Ver Documento PICCA</a>
+                         <div class="flex flex-col md:flex-row gap-2">
+                             <a href="https://drive.google.com/drive/folders/1LaDbXDkwIHni18WDI2G208w0XLlkv5Eb?usp=sharing" target="_blank" class="w-full md:w-auto bg-slate-200 text-slate-800 font-semibold py-2 px-4 rounded-lg hover:bg-slate-300">Medidas Estratégicas</a>
+                             <a href="https://drive.google.com/drive/folders/1LaDbXDkwIHni18WDI2G208w0XLlkv5Eb?usp=sharing" target="_blank" class="w-full md:w-auto bg-slate-200 text-slate-800 font-semibold py-2 px-4 rounded-lg hover:bg-slate-300">Medidas Transversales</a>
+                             <a href="https://drive.google.com/drive/folders/1aU4NrE_9ifLJmA9b2cJZ5GYcP1IU9OUO?usp=sharing" target="_blank" class="w-full md:w-auto bg-slate-200 text-slate-800 font-semibold py-2 px-4 rounded-lg hover:bg-slate-300">Medidas de Monitoreo</a>
+                         </div>
+                    </div>
+                </div>
+            </div>
+             <div id="clima-paz" class="planes-content hidden">
+                <div class="kpi-card">
+                    <h4 class="text-xl font-bold text-slate-800 mb-2">Plan Clima y Paz</h4>
+                    <p class="text-slate-600 mb-6">Este plan articula las acciones climáticas con los objetivos de construcción de paz en el territorio, buscando sinergias entre la sostenibilidad ambiental y el desarrollo social.</p>
+                     <a href="https://drive.google.com/file/d/1Rb2zQOVIAbIobo6ypsqY8mg33Vse-vHt/view?usp=sharing" target="_blank" class="w-full md:w-auto text-center bg-blue-800 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors">Ver Plan Clima y Paz</a>
+                </div>
+            </div>
+            <div id="equivalencia" class="planes-content hidden">
+                 <div class="kpi-card">
+                    <h4 class="text-xl font-bold text-slate-800 mb-2">Estudio de Equivalencia PICCA y Plan Clima y Paz</h4>
+                    <p class="text-slate-600 mb-6">Documento técnico que analiza y establece las correspondencias y sinergias entre el PICCA y el Plan Clima y Paz, facilitando su implementación articulada.</p>
+                    <a href="https://drive.google.com/file/d/14aHqCD4H-d1UxkNzD1B0YhbuJqRbXBQJ/view?usp=sharing" target="_blank" class="w-full md:w-auto text-center bg-blue-800 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors">Ver Estudio de Equivalencia</a>
+                </div>
+            </div>
+        </section>
+        
+        <section id="recursos" class="pt-24">
+            <h3 class="section-title">Recursos Adicionales</h3>
+            <p class="text-slate-600 mb-8 max-w-3xl">Acceda a informes detallados y otros documentos de seguimiento del proyecto.</p>
+            <div class="kpi-card">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <a href="https://drive.google.com/drive/folders/1jKwTSG55vCfVRQhhUdcZVrMkr46l6O7Q?usp=sharing" target="_blank" class="w-full text-center bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors">Informes Mensuales</a>
+                    <a href="https://drive.google.com/drive/folders/1Oc2S4OPYb4LNEC-9aWCPCp_2CtlI-77m?usp=sharing" target="_blank" class="w-full text-center bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors">Informes Trimestrales</a>
+                    <a href="https://drive.google.com/drive/folders/1QqpFMnMQmsEcjZxPgue9AWWHA7gkpQhh?usp=sharing" target="_blank" class="w-full text-center bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors">Informes de Contratos</a>
+                    <a href="https://drive.google.com/drive/folders/1YFm4YogeyUmGSkDFOs8BACsqTpLmfD89?usp=sharing" target="_blank" class="w-full text-center bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors">Análisis Cartográficos</a>
+                </div>
+            </div>
+        </section>
+
+        <section id="oportunidades" class="pt-24">
+            <h3 class="section-title">Oportunidades de Mejora</h3>
+            <p class="text-slate-600 mb-8 max-w-3xl">Análisis de escenarios y alternativas estratégicas para abordar los desafíos del proyecto, principalmente la ejecución de la meta de I+D+i.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="action-plan-cards">
+                <div class="kpi-card flex flex-col justify-between"><h4 class="font-semibold text-slate-800">Piloto + Practicante</h4><p class="text-sm text-slate-600 mt-2">Enfoque de bajo alcance pero alta viabilidad. Modificación contractual necesaria.</p><div class="text-xs mt-4"><span class="font-bold">Impacto:</span> Bajo<br><span class="font-bold">Viabilidad:</span> Alta<br><span class="font-bold">Complejidad:</span> Media</div><div id="plan-1-output"></div><button data-id="1" data-title="Piloto + Practicante" data-desc="Enfoque de bajo alcance pero alta viabilidad. Modificación contractual necesaria." class="action-plan-btn mt-4 w-full bg-slate-100 text-slate-700 font-bold py-2 px-4 rounded-lg hover:bg-slate-200 transition-colors text-sm">Idear Plan de Acción</button></div>
+                <div class="kpi-card flex flex-col justify-between"><h4 class="font-semibold text-slate-800">Finca en Turbo</h4><p class="text-sm text-slate-600 mt-2">Enfoque de muy bajo alcance y alta irrelevancia para la meta regional.</p><div class="text-xs mt-4"><span class="font-bold">Impacto:</span> Muy Bajo<br><span class="font-bold">Viabilidad:</span> Muy Alta<br><span class="font-bold">Complejidad:</span> Alta</div><div id="plan-2-output"></div><button data-id="2" data-title="Finca en Turbo" data-desc="Enfoque de muy bajo alcance y alta irrelevancia para la meta regional." class="action-plan-btn mt-4 w-full bg-slate-100 text-slate-700 font-bold py-2 px-4 rounded-lg hover:bg-slate-200 transition-colors text-sm">Idear Plan de Acción</button></div>
+                <div class="kpi-card flex flex-col justify-between"><h4 class="font-semibold text-slate-800">Modificar Contrato</h4><p class="text-sm text-slate-600 mt-2">Depende de la viabilidad de las opciones 1 o 2, pero añade complejidad legal y administrativa.</p><div class="text-xs mt-4"><span class="font-bold">Impacto:</span> Dependiente<br><span class="font-bold">Viabilidad:</span> Dependiente<br><span class="font-bold">Complejidad:</span> Baja</div><div id="plan-3-output"></div><button data-id="3" data-title="Modificar Contrato" data-desc="Depende de la viabilidad de las opciones 1 o 2, pero añade complejidad legal y administrativa." class="action-plan-btn mt-4 w-full bg-slate-100 text-slate-700 font-bold py-2 px-4 rounded-lg hover:bg-slate-200 transition-colors text-sm">Idear Plan de Acción</button></div>
+                <div class="kpi-card border-2 border-green-500 flex flex-col justify-between"><h4 class="font-semibold text-slate-800">Mínima Cuantía</h4><p class="text-sm text-slate-600 mt-2">Opción con el mayor impacto regional y la más alineada al objetivo original del proyecto.</p><div class="text-xs mt-4"><span class="font-bold">Impacto:</span> Alto<br><span class="font-bold">Viabilidad:</span> Baja<br><span class="font-bold">Complejidad:</span> Media</div><div id="plan-4-output"></div><button data-id="4" data-title="Mínima Cuantía" data-desc="Opción con el mayor impacto regional y la más alineada al objetivo original del proyecto." class="action-plan-btn mt-4 w-full bg-green-100 text-green-800 font-bold py-2 px-4 rounded-lg hover:bg-green-200 transition-colors text-sm">Idear Plan de Acción</button></div>
+            </div>
+        </section>
+
+        <section id="riesgos" class="pt-24">
+            <h3 class="section-title">Riesgos y Próximos Pasos</h3>
+            <p class="text-slate-600 mb-8 max-w-3xl">Análisis del principal reto del proyecto y las alternativas consideradas para asegurar el cumplimiento del 100% de las metas físicas.</p>
+            <div class="kpi-card bg-amber-50 border-amber-200 mb-8">
+                <h4 class="font-bold text-xl text-amber-800">Reto Principal: Ejecución del Estudio de I+D+i (10% Avance)</h4>
+                <p class="text-amber-700 mt-2">La meta muestra un avance inicial pero el obstáculo principal persiste: la falta de un experto en la materia. La alternativa de Mínima Cuantía, aunque ideal en impacto, presenta riesgos presupuestarios.</p>
+            </div>
+             <div class="kpi-card">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h4 class="font-semibold text-slate-800 mb-2">Próximos Pasos Estratégicos</h4>
+                         <ul id="next-steps-list" class="list-decimal list-inside space-y-2 text-slate-700 font-medium">
+                            <li>Tomar una decisión definitiva sobre la ruta para ejecutar la meta de I+D+i.</li>
+                            <li>Iniciar los procesos contractuales para asignar el 40% del presupuesto disponible.</li>
+                            <li>Consolidar y archivar los informes finales y entregables de las actividades ya avanzadas.</li>
+                        </ul>
+                    </div>
+                    <button id="draft-email-btn" class="bg-slate-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-slate-700 transition-colors whitespace-nowrap">
+                       Redactar Comunicación
+                    </button>
+                </div>
+                 <div id="email-output"></div>
+            </div>
+        </section>
+
+        <section id="contacto" class="pt-24">
+            <h3 class="section-title">Contacto</h3>
+            <p class="text-slate-600 mb-8 max-w-3xl">Para más información sobre el proyecto, puede contactar a los siguientes responsables.</p>
+            <div class="kpi-card">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="text-center">
+                        <h4 class="font-bold text-slate-800">Carlos Daniel Gomez Zuluaga</h4>
+                        <p class="text-slate-600">Profesional</p>
+                        <a href="mailto:cgomez@corpouraba.gov.co" class="text-blue-600 hover:underline">cgomez@corpouraba.gov.co</a>
+                    </div>
+                    <div class="text-center">
+                        <h4 class="font-bold text-slate-800">Kellis Maleibis Hinestroza Mena</h4>
+                        <p class="text-slate-600">Líder del proyecto</p>
+                        <a href="mailto:khinestroza@corpouraba.gov.co" class="text-blue-600 hover:underline">khinestroza@corpouraba.gov.co</a>
+                    </div>
+                    <div class="text-center">
+                        <h4 class="font-bold text-slate-800">CORPOURABA</h4>
+                        <p class="text-slate-600">Atención al Usuario</p>
+                        <a href="mailto:atencionalusuario@corpouraba.gov.co" class="text-blue-600 hover:underline">atencionalusuario@corpouraba.gov.co</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section class="pt-24 text-center">
+            <button id="summarize-btn" class="bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-indigo-700 transition-colors text-lg">
+                Generar Resumen Ejecutivo con IA
+            </button>
+        </section>
+    </main>
+    
+    <div id="contract-modal" class="modal-overlay">
+        <div class="modal-container">
+            <span id="close-contract-modal-btn" class="modal-close">&times;</span>
+            <header class="mb-4">
+                <h3 class="text-2xl font-bold text-slate-900">Informe de Avance del Contrato 0119-2025</h3>
+            </header>
+            <nav class="flex border-b border-slate-200 mb-6 space-x-4 md:space-x-6">
+                 <button class="tab-button active py-2 px-3 text-sm" data-tab="resumen">Resumen</button>
+                 <button class="tab-button py-2 px-3 text-sm" data-tab="mrv">Sistema MRV</button>
+                 <button class="tab-button py-2 px-3 text-sm" data-tab="evaluacion">Evaluación</button>
+                 <button class="tab-button py-2 px-3 text-sm" data-tab="energia">Energías</button>
+                 <button class="tab-button py-2 px-3 text-sm" data-tab="gestion">Gestión y GIS</button>
+            </nav>
+            <main>
+                <div id="resumen" class="content-section active">
+                    <div class="chart-container h-96"><canvas id="dashboardChartModal"></canvas></div>
+                </div>
+                <div id="mrv" class="content-section">
+                     <h4 class="font-bold text-lg mb-2">Implementación del Sistema MRV (45%)</h4>
+                     <div class="chart-container h-80"><canvas id="mrvChartModal"></canvas></div>
+                </div>
+                <div id="evaluacion" class="content-section">
+                    <h4 class="font-bold text-lg mb-2">Seguimiento a Estufas (50%)</h4>
+                    <div class="chart-container h-64 w-64 mx-auto"><canvas id="estufasChartModal"></canvas></div>
+                </div>
+                <div id="energia" class="content-section">
+                     <h4 class="font-bold text-lg mb-2">Formulación Proyectos Biometano (40%)</h4>
+                     <div class="chart-container h-80"><canvas id="energiaChartModal"></canvas></div>
+                </div>
+                <div id="gestion" class="content-section">
+                    <h4 class="font-bold text-lg mb-2">Análisis Cartográfico (GIS) (46%)</h4>
+                    <div class="chart-container h-64 w-64 mx-auto"><canvas id="cartografiaChartModal"></canvas></div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <div id="gemini-modal" class="modal-overlay">
+        <div class="modal-container max-w-4xl h-auto max-h-[90vh]">
+            <span id="close-gemini-modal-btn" class="modal-close">&times;</span>
+            <h3 id="gemini-modal-title" class="text-2xl font-bold text-slate-900 mb-4">Resultado de Gemini</h3>
+            <div id="gemini-modal-content">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="coords-modal" class="modal-overlay">
+        <div class="modal-container max-w-4xl h-auto max-h-[90vh]">
+            <span id="close-coords-modal-btn" class="modal-close">&times;</span>
+            <h3 class="text-2xl font-bold text-slate-900 mb-4">Tabla de Coordenadas de Beneficiarios</h3>
+             <div class="mb-6 border-b border-slate-200">
+                <nav class="flex -mb-px" id="coords-tabs">
+                    <button data-tab="coords-carepa" class="tab-button active py-4 px-6 bg-transparent text-lg font-medium border-b-2 border-blue-600 text-blue-600 whitespace-nowrap">Carepa</button>
+                    <button data-tab="coords-san-pedro" class="tab-button py-4 px-6 bg-transparent text-lg font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap">San Pedro de Urabá</button>
+                </nav>
+            </div>
+            <div id="coords-carepa" class="coords-content">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-100"><tr><th class="p-2">Nombre</th><th class="p-2">Vereda</th><th class="p-2">Coordenadas</th></tr></thead>
+                    <tbody id="carepa-coords-table"></tbody>
+                </table>
+            </div>
+            <div id="coords-san-pedro" class="coords-content hidden">
+                 <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-100"><tr><th class="p-2">Nombre</th><th class="p-2">Vereda</th><th class="p-2">Coordenadas</th></tr></thead>
+                    <tbody id="san-pedro-coords-table"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    const projectData = {
+        dashboard: {
+            labels: ['Sistema MRV', 'Estufas Eficientes', 'Biometano', 'Estudio I+D+i'],
+            data: [45, 33, 40, 10] 
+        },
+        financial: {
+            data: [166355400, 109644600],
+            labels: ['Comprometido', 'Disponible']
+        },
+        convenioStoves: {
+            labels: ['Giraldo', 'Carepa', 'San Pedro de Urabá', 'Frontino', 'Urrao'],
+            data: [25, 25, 25, 20, 7]
+        }
+    };
+
+    const contractModalData = {
+        dashboard: { labels: ['Sistema MRV', 'Evaluación Proyectos', 'Seguimiento Estufas', 'Biometano', 'Apoyo Coordinación', 'Análisis Cartográfico'], data: [45, 100, 50, 40, 30, 46], tabs: ['mrv', 'evaluacion', 'evaluacion', 'energia', 'gestion', 'gestion'] },
+        mrv: { labels: ['Informe 1', 'Informe 2', 'Informe 3', 'Capacitaciones'], data: [10, 20, 30, 45] },
+        estufas: { data: [50, 50], labels: ['Completado', 'Pendiente'] },
+        energia: { labels: ['Informe 1-2', 'Informe 3', 'Informe 4'], data: [5, 20, 40] },
+        cartografia: { data: [116, 250 - 116], labels: ['Entregados', 'Pendientes'] }
+    };
+    
+    const metaData = {
+        mrvProgress: { data: [9, 10], labels: ['Capacitados', 'Pendientes'], progress: 45 },
+        stovesProgress: { data: [40, 80], labels: ['Instaladas', 'Pendientes'], progress: 33 }
+    };
+
+    const stoveLocations = [ { name: "Daniel Nisperuz", Vereda: "El Silencio El Talego", coords: [7.7335, -76.7076] }, { name: "Victor Ruiz Hinestroza", Vereda: "Las Trescientas", coords: [7.7883, -76.7777] }, { name: "Enidia Goez", Vereda: "Caracoli", coords: [7.7584, -76.5326] }, { name: "Fernando Romero", Vereda: "Caracoli", coords: [7.7586, -76.5317] }, { name: "Fenis Goez Goez", Vereda: "Caracoli", coords: [7.7599, -76.5323] }, { name: "Doralba Higuita", Vereda: "Caracoli", coords: [7.7601, -76.5319] }, { name: "Maria Concepcion Goez", Vereda: "Caracoli", coords: [7.7591, -76.5322] }, { name: "Geremias David Goez", Vereda: "Caracoli", coords: [7.7610, -76.5085] }, { name: "Ubaldo de jesus Graciano", Vereda: "Campamento", coords: [7.7780, -76.5091] }, { name: "Norelia Borja Torres", Vereda: "Campamento", coords: [7.7208, -76.5292] }, { name: "Noralba valdes Higuita", Vereda: "El Cerro", coords: [7.7602, -76.4818] }, { name: "Luz nohemy Zapata", Vereda: "Polines", coords: [7.7284, -76.5375] }, { name: "Luz damarys Puerta", Vereda: "Polines", coords: [7.7279, -76.5380] }, { name: "Maria veronica Higuita", Vereda: "El Cerro", coords: [7.7587, -76.4820] }, { name: "Juan de la cruz goez", Vereda: "Caracoli", coords: [7.7589, -76.5312] }, { name: "Rubiela de jesus Borja", Vereda: "El reposo", coords: [7.7027, -76.5169] }, { name: "Luz elena Borja", Vereda: "El reposo", coords: [7.7023, -76.5173] }, { name: "Rosa enlia Higuita", Vereda: "El Cerro", coords: [7.7605, -76.4820] }, { name: "Blanca Nubia Higuita", Vereda: "El Cerro", coords: [7.7608, -76.4822] } ];
+    
+    const sanPedroStoveLocations = [
+        { name: "Ana Delfa Molina Molina", Vereda: "Almagras", coords: [8.3446, -76.3311] },
+        { name: "Ana Judith Rojas Vargas", Vereda: "Almagras", coords: [8.3371, -76.3266] },
+        { name: "Carmen Betty Lopez Cogollo", Vereda: "Almagras", coords: [8.3444, -76.3261] },
+        { name: "Concepción Polo", Vereda: "Almagras", coords: [8.3422, -76.3296] },
+        { name: "Elena Sotelo Rodriguez", Vereda: "Almagras", coords: [8.3530, -76.3193] },
+        { name: "Elsy Judith Casa Seña", Vereda: "Almagras", coords: [8.3490, -76.3233] },
+        { name: "Emilia del Carmen Bolaños Cordero", Vereda: "Almagras", coords: [8.3475, -76.3217] },
+        { name: "Felix Enrique Quintana Lara", Vereda: "Almagras", coords: [8.3508, -76.3220] },
+        { name: "Heriberto Antonio Ramirez Hernandez", Vereda: "Almagras", coords: [8.3504, -76.3216] },
+        { name: "Ingrid Patricia Seña Molina", Vereda: "Almagras", coords: [8.3456, -76.3311] },
+        { name: "Katiana Seña Seña", Vereda: "Almagras", coords: [8.3423, -76.3220] },
+        { name: "Marcos David Casas Seña", Vereda: "Almagras", coords: [8.3506, -76.3238] },
+        { name: "Maria Evangelina Seña Sierra", Vereda: "Almagras", coords: [8.3388, -76.3269] },
+        { name: "Muriel Benitez Olivero", Vereda: "Almagras", coords: [8.3436, -76.3232] },
+        { name: "Olis Magali Ramos Espitia", Vereda: "Almagras", coords: [8.3516, -76.3235] },
+        { name: "Rafaela Maria Bolaño Cordero", Vereda: "Almagras", coords: [8.3481, -76.3213] },
+    ];
+
+
+    let charts = {};
+    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim();
+    const secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--color-secondary').trim();
+    const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim();
+    
+    const doughnutTextPlugin = {
+        id: 'doughnutText',
+        afterDraw(chart, args, options) {
+            const { ctx, data } = chart;
+            const text = options.text || '0%';
+            const x = chart.getDatasetMeta(0).data[0].x;
+            const y = chart.getDatasetMeta(0).data[0].y;
+            ctx.save();
+            ctx.font = 'bold 2rem Inter, sans-serif';
+            ctx.fillStyle = primaryColor;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, x, y);
+            ctx.restore();
+        }
+    };
+
+    const baseChartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: primaryColor, titleColor: '#ffffff', bodyColor: '#ffffff', padding: 10, cornerRadius: 6, displayColors: false } } };
+    const axisTicksConfig = { color: '#475569', maxRotation: 0, autoSkip: true };
+    const commonScales = { y: { beginAtZero: true, max: 100, grid: { color: '#e2e8f0' }, ticks: { color: '#475569', callback: (value) => value + '%' } }, x: { grid: { display: false }, ticks: axisTicksConfig } };
+    const lineChartScales = { y: { beginAtZero: true, grid: { color: '#e2e8f0' }, ticks: { color: '#475569', callback: (value) => value + '%' } }, x: { grid: { display: true, color:'#e2e8f0' }, ticks: axisTicksConfig } };
+    const barScales = { ...commonScales, y: { ...commonScales.y, max: undefined, ticks: { color: '#475569', callback: (value) => value } } };
+    const donutOptions = { ...baseChartOptions, cutout: '70%' };
+
+    function createChart(id, config) { if(charts[id]) charts[id].destroy(); const canvas = document.getElementById(id); if(canvas) charts[id] = new Chart(canvas, config); }
+    createChart('projectDashboardChart', { type: 'bar', data: { labels: projectData.dashboard.labels, datasets: [{ label: 'Avance', data: projectData.dashboard.data, backgroundColor: projectData.dashboard.data.map((d, i) => i === 3 ? accentColor : primaryColor), borderRadius: 4 }] }, options: { ...baseChartOptions, scales: commonScales, plugins: { ...baseChartOptions.plugins, tooltip: { callbacks: { label: ctx => `Avance: ${ctx.raw}%` } } } } });
+    createChart('financialChart', { type: 'doughnut', data: { labels: projectData.financial.labels, datasets: [{ data: projectData.financial.data, backgroundColor: [accentColor, '#d1d5db'], borderWidth: 0 }] }, options: { ...donutOptions, plugins: { ...donutOptions.plugins, tooltip: { callbacks: { label: (c) => `${c.label}: $${c.raw.toLocaleString('es-CO')}` } } } } });
+    
+    createChart('mrvProgressChart', { type: 'doughnut', data: { labels: metaData.mrvProgress.labels, datasets: [{ data: metaData.mrvProgress.data, backgroundColor: [primaryColor, '#d1d5db'], borderWidth: 0 }] }, options: { ...donutOptions, plugins: { doughnutText: { text: `${metaData.mrvProgress.progress}%` }, tooltip: { enabled: false } } }, plugins: [doughnutTextPlugin] });
+    createChart('stovesProgressChart', { type: 'doughnut', data: { labels: metaData.stovesProgress.labels, datasets: [{ data: metaData.stovesProgress.data, backgroundColor: [primaryColor, '#d1d5db'], borderWidth: 0 }] }, options: { ...donutOptions, plugins: { doughnutText: { text: `${metaData.stovesProgress.progress}%` }, tooltip: { enabled: false } } }, plugins: [doughnutTextPlugin] });
+    
+    createChart('convenioStovesChart', { type: 'bar', data: { labels: projectData.convenioStoves.labels, datasets: [{ label: 'Estufas', data: projectData.convenioStoves.data, backgroundColor: primaryColor, borderRadius: 4 }] }, options: { ...baseChartOptions, scales: barScales, plugins: { ...baseChartOptions.plugins, tooltip: { callbacks: { label: ctx => `Estufas: ${ctx.raw}` } } } } });
+
+    createChart('energiaChartMeta', { type: 'line', data: { labels: contractModalData.energia.labels, datasets: [{ label: 'Avance', data: contractModalData.energia.data, borderColor: primaryColor, backgroundColor: `${primaryColor}20`, fill: true, tension: 0.3 }] }, options: { ...baseChartOptions, scales: lineChartScales, plugins: { ...baseChartOptions.plugins, tooltip: { callbacks: { label: ctx => `Avance: ${ctx.raw}%` } } } } });
+    
+    const map = L.map('map').setView([7.75, -76.6], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(map);
+    stoveLocations.forEach(loc => { L.marker(loc.coords).addTo(map).bindPopup(`<b>${loc.name}</b><br>${loc.Vereda}`); });
+    
+    const mapSanPedro = L.map('map-san-pedro').setView([8.34, -76.32], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(mapSanPedro);
+    sanPedroStoveLocations.forEach(loc => { L.marker(loc.coords).addTo(mapSanPedro).bindPopup(`<b>${loc.name}</b><br>${loc.Vereda}`); });
+
+    const contractModal = document.getElementById('contract-modal');
+    const openModalBtn = document.getElementById('openModalBtn');
+    const closeModalBtn = document.getElementById('close-contract-modal-btn');
+    let contractChartsInitialized = false;
+
+    function initContractModalCharts() {
+        if (contractChartsInitialized) return;
+        const tabs = contractModal.querySelectorAll('.tab-button');
+        const contentSections = contractModal.querySelectorAll('.content-section');
+        const switchTab = (tabId) => { tabs.forEach(t => t.classList.remove('active')); contentSections.forEach(s => s.classList.remove('active')); contractModal.querySelector(`.tab-button[data-tab="${tabId}"]`).classList.add('active'); contractModal.querySelector(`#${tabId}`).classList.add('active'); };
+        tabs.forEach(tab => { tab.addEventListener('click', () => switchTab(tab.dataset.tab)); });
+        createChart('dashboardChartModal', { type: 'bar', data: { labels: contractModalData.dashboard.labels, datasets: [{ label: 'Avance', data: contractModalData.dashboard.data, backgroundColor: primaryColor, borderRadius: 4 }] }, options: { ...baseChartOptions, scales: commonScales, onClick: (e, els) => { if(els.length > 0) switchTab(contractModalData.dashboard.tabs[els[0].index]); } } });
+        createChart('mrvChartModal', { type: 'line', data: { labels: contractModalData.mrv.labels, datasets: [{ data: contractModalData.mrv.data, borderColor: secondaryColor, backgroundColor: `${secondaryColor}20`, fill: true }] }, options: { ...baseChartOptions, scales: lineChartScales } });
+        createChart('estufasChartModal', { type: 'doughnut', data: { labels: contractModalData.estufas.labels, datasets: [{ data: contractModalData.estufas.data, backgroundColor: [secondaryColor, '#d1d5db'] }] }, options: donutOptions });
+        createChart('energiaChartModal', { type: 'line', data: { labels: contractModalData.energia.labels, datasets: [{ data: contractModalData.energia.data, borderColor: secondaryColor, backgroundColor: `${secondaryColor}20`, fill: true }] }, options: { ...baseChartOptions, scales: lineChartScales } });
+        createChart('cartografiaChartModal', { type: 'doughnut', data: { labels: contractModalData.cartografia.labels, datasets: [{ data: contractModalData.cartografia.data, backgroundColor: [primaryColor, '#d1d5db'] }] }, options: donutOptions });
+        contractChartsInitialized = true;
+    }
+
+    openModalBtn.addEventListener('click', () => { contractModal.style.display = 'flex'; initContractModalCharts(); });
+    closeModalBtn.addEventListener('click', () => { contractModal.style.display = 'none'; });
+    contractModal.addEventListener('click', (e) => { if (e.target === contractModal) contractModal.style.display = 'none'; });
+    
+    function setupDropdown(containerId, triggerId, menuId) {
+        const container = document.getElementById(containerId);
+        const trigger = document.getElementById(triggerId);
+        const menu = document.getElementById(menuId);
+
+        if (trigger && container && menu) {
+            trigger.addEventListener('click', (event) => {
+                event.stopPropagation();
+                document.querySelectorAll('.dropdown-menu').forEach(m => {
+                    if (m.id !== menuId) {
+                        m.classList.add('hidden');
+                    }
+                });
+                menu.classList.toggle('hidden');
+            });
+        }
+    }
+
+    setupDropdown('dropdown-container', 'dropdown-trigger', 'dropdown-menu');
+    setupDropdown('convenios-dropdown-container', 'convenios-dropdown-trigger', 'convenios-dropdown-menu');
+    setupDropdown('praes-dropdown-container', 'praes-dropdown-trigger', 'praes-dropdown-menu');
+    setupDropdown('planes-dropdown-container', 'planes-dropdown-trigger', 'planes-dropdown-menu');
+
+    document.addEventListener('click', (event) => {
+        document.querySelectorAll('.dropdown-menu').forEach(menu => {
+            const container = menu.closest('.relative');
+            if (container && !container.contains(event.target)) {
+                 menu.classList.add('hidden');
+            }
+        });
+    });
+    
+    document.querySelectorAll('.dropdown-menu a').forEach(link => {
+        link.addEventListener('click', () => {
+            link.closest('.dropdown-menu').classList.add('hidden');
+        });
+    });
+
+    const huellaTabs = document.getElementById('huella-tabs').querySelectorAll('button');
+    const huellaContents = document.querySelectorAll('.huella-content');
+    huellaTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            huellaTabs.forEach(t => {
+                t.classList.remove('active', 'border-blue-600', 'text-blue-600');
+                t.classList.add('border-transparent', 'text-slate-500', 'hover:text-slate-700', 'hover:border-slate-300');
+            });
+            tab.classList.add('active', 'border-blue-600', 'text-blue-600');
+            tab.classList.remove('border-transparent', 'text-slate-500', 'hover:text-slate-700', 'hover:border-slate-300');
+            
+            huellaContents.forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.getElementById(tab.dataset.tab).classList.remove('hidden');
+        });
+    });
+
+    const planesTabs = document.getElementById('planes-tabs').querySelectorAll('button');
+    const planesContents = document.querySelectorAll('.planes-content');
+    planesTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            planesTabs.forEach(t => {
+                t.classList.remove('active', 'border-blue-600', 'text-blue-600');
+                t.classList.add('border-transparent', 'text-slate-500', 'hover:text-slate-700', 'hover:border-slate-300');
+            });
+            tab.classList.add('active', 'border-blue-600', 'text-blue-600');
+            tab.classList.remove('border-transparent', 'text-slate-500', 'hover:text-slate-700', 'hover:border-slate-300');
+            
+            planesContents.forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.getElementById(tab.dataset.tab).classList.remove('hidden');
+        });
+    });
+    
+    const praesTabs = document.getElementById('praes-tabs').querySelectorAll('button');
+    const praesContents = document.querySelectorAll('.praes-content');
+    praesTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            praesTabs.forEach(t => {
+                t.classList.remove('active', 'border-blue-600', 'text-blue-600');
+                t.classList.add('border-transparent', 'text-slate-500', 'hover:text-slate-700', 'hover:border-slate-300');
+            });
+            tab.classList.add('active', 'border-blue-600', 'text-blue-600');
+            tab.classList.remove('border-transparent', 'text-slate-500', 'hover:text-slate-700', 'hover:border-slate-300');
+            
+            praesContents.forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.getElementById(tab.dataset.tab).classList.remove('hidden');
+        });
+    });
+
+
+    const geminiModal = document.getElementById('gemini-modal');
+    const geminiModalTitle = document.getElementById('gemini-modal-title');
+    const geminiModalContent = document.getElementById('gemini-modal-content');
+    const closeGeminiModalBtn = document.getElementById('close-gemini-modal-btn');
+    closeGeminiModalBtn.addEventListener('click', () => geminiModal.style.display = 'none');
+    geminiModal.addEventListener('click', (e) => { if(e.target === geminiModal) geminiModal.style.display = 'none'; });
+    
+    const coordsModal = document.getElementById('coords-modal');
+    const openCoordsModalBtn = document.getElementById('openCoordsModalBtn');
+    const closeCoordsModalBtn = document.getElementById('close-coords-modal-btn');
+    
+    if (openCoordsModalBtn) {
+        openCoordsModalBtn.addEventListener('click', () => coordsModal.style.display = 'flex');
+        closeCoordsModalBtn.addEventListener('click', () => coordsModal.style.display = 'none');
+        coordsModal.addEventListener('click', (e) => { if (e.target === coordsModal) coordsModal.style.display = 'none'; });
+
+        const carepaTable = document.getElementById('carepa-coords-table');
+        stoveLocations.forEach(loc => {
+            carepaTable.innerHTML += `<tr class="border-b"><td class="p-2">${loc.name}</td><td class="p-2">${loc.Vereda}</td><td class="p-2">${loc.coords[0]}, ${loc.coords[1]}</td></tr>`;
+        });
+
+        const sanPedroTable = document.getElementById('san-pedro-coords-table');
+        sanPedroStoveLocations.forEach(loc => {
+            sanPedroTable.innerHTML += `<tr class="border-b"><td class="p-2">${loc.name}</td><td class="p-2">${loc.Vereda}</td><td class="p-2">${loc.coords[0]}, ${loc.coords[1]}</td></tr>`;
+        });
+        
+        const coordsTabs = document.getElementById('coords-tabs').querySelectorAll('button');
+        const coordsContents = document.querySelectorAll('.coords-content');
+        coordsTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                coordsTabs.forEach(t => {
+                    t.classList.remove('active', 'border-blue-600', 'text-blue-600');
+                    t.classList.add('border-transparent', 'text-slate-500', 'hover:text-slate-700', 'hover:border-slate-300');
+                });
+                tab.classList.add('active', 'border-blue-600', 'text-blue-600');
+                tab.classList.remove('border-transparent', 'text-slate-500', 'hover:text-slate-700', 'hover:border-slate-300');
+                
+                coordsContents.forEach(content => {
+                    content.classList.add('hidden');
+                });
+                document.getElementById(tab.dataset.tab).classList.remove('hidden');
+            });
+        });
+    }
+
+    async function callGeminiAPI(prompt, outputElement, isModal = true, retries = 3, delay = 1000) {
+        if(isModal) {
+            geminiModal.style.display = 'flex';
+            geminiModalContent.innerHTML = '<div class="spinner"></div>';
+        } else {
+            outputElement.innerHTML = '<div class="spinner !w-6 !h-6 !border-2"></div>';
+        }
+        
+        const apiKey = "";
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+        const payload = { contents: [{ parts: [{ text: prompt }] }] };
+
+        try {
+            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (!response.ok) {
+                 if (response.status === 429 && retries > 0) {
+                    await new Promise(res => setTimeout(res, delay));
+                    return callGeminiAPI(prompt, outputElement, isModal, retries - 1, delay * 2);
+                }
+                throw new Error(`Error en la API: ${response.statusText}`);
+            }
+            const result = await response.json();
+            const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+            
+            const targetElement = isModal ? geminiModalContent : outputElement;
+
+            if (text) {
+                targetElement.innerText = text;
+                 if(!isModal) targetElement.classList.add('gemini-output');
+            } else {
+                targetElement.innerText = 'No se pudo obtener una respuesta.';
+            }
+        } catch (error) {
+            const targetElement = isModal ? geminiModalContent : outputElement;
+            targetElement.innerText = `Error al contactar la IA: ${error.message}`;
+        }
+    }
+
+    document.getElementById('summarize-btn').addEventListener('click', () => {
+        geminiModalTitle.innerText = 'Resumen Ejecutivo del Proyecto';
+        let reportContent = '';
+        document.querySelectorAll('#presentacion, #dashboard, #contexto, #progreso, #financiero, #contrato, #riesgos').forEach(section => {
+            reportContent += section.innerText + '\n\n';
+        });
+        const prompt = `Actúa como un director de proyectos y genera un resumen ejecutivo conciso (máximo 3 párrafos) del siguiente informe de avance. Enfócate en el estado general, los logros clave, el presupuesto y el principal riesgo. El informe es:\n\n${reportContent}`;
+        callGeminiAPI(prompt, geminiModalContent, true);
+    });
+
+    document.querySelectorAll('.action-plan-btn').forEach(button => {
+        button.addEventListener('click', (e) => {
+            e.preventDefault();
+            const id = button.dataset.id;
+            const title = button.dataset.title;
+            const desc = button.dataset.desc;
+            const outputDiv = document.getElementById(`plan-${id}-output`);
+            const prompt = `Eres un consultor de gestión de proyectos. Para el siguiente escenario de un proyecto de cambio climático: '${title}: ${desc}', crea un plan de acción detallado con 5-7 pasos concretos en una lista numerada. Incluye responsables sugeridos (ej. 'Líder de Proyecto', 'Equipo Financiero') y un cronograma estimado para cada paso.`;
+            callGeminiAPI(prompt, outputDiv, false);
+            button.style.display = 'none';
+        });
+    });
+
+    document.getElementById('draft-email-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        const outputDiv = document.getElementById('email-output');
+        let steps = [];
+        document.querySelectorAll('#next-steps-list li').forEach(li => steps.push(li.innerText));
+        const prompt = `Actúa como el gerente del proyecto 'Gestión del Cambio Climático'. Redacta un correo electrónico profesional y motivador dirigido al equipo del proyecto. El correo debe comunicar claramente los siguientes pasos estratégicos, asignar responsabilidades tentativas y establecer un tono de urgencia y colaboración. Los pasos son:\n- ${steps.join('\n- ')}`;
+        callGeminiAPI(prompt, outputDiv, false);
+        e.currentTarget.style.display = 'none';
+    });
+});
+</script>
+</body>
+</html>
+
